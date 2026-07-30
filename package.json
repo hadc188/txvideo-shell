@@ -1,0 +1,39 @@
+{
+  "name": "txvideo-shell",
+  "version": "0.1.0",
+  "private": true,
+  "description": "腾讯视频轻量第三方外壳（整页套壳 v.qq.com，仅供个人学习研究）",
+  "author": "txvideo-shell",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "license": "GPL-3.0",
+  "devDependencies": {
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.txvideo.shell",
+    "productName": "腾讯视频",
+    "directories": { "output": "dist" },
+    "files": ["src/**/*", "package.json"],
+    "asarUnpack": ["src/tx.ico"],
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "txv.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "腾讯视频",
+      "artifactName": "TXVideo-Setup-${version}-${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "TXVideo-Portable-${version}-${arch}.${ext}"
+    }
+  }
+}

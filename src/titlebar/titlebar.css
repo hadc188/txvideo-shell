@@ -1,0 +1,71 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 40px;
+  overflow: hidden;
+  background: #141414;
+  color: #e8e8e8;
+  font: 13px/1.4 "Microsoft YaHei", "PingFang SC", sans-serif;
+  user-select: none;
+  cursor: default;
+}
+
+.titlebar {
+  position: relative;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  -webkit-app-region: drag;           /* 整条可拖拽移动窗口 */
+  padding: 0 2px 0 6px;
+}
+
+/* 交互区必须 no-drag，否则点击被拖拽吞掉 */
+.nav, .win-controls { display: flex; align-items: center; -webkit-app-region: no-drag; }
+
+.title {
+  position: absolute;                 /* 绝对居中，不受两侧宽度影响 */
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  color: #b9b9b9;
+  pointer-events: none;
+  max-width: 40%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tb-btn {
+  -webkit-app-region: no-drag;
+  width: 34px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #cfcfcf;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background .12s, color .12s;
+}
+.tb-btn svg { width: 16px; height: 16px; }
+.tb-btn:hover { background: rgba(255, 255, 255, .09); color: #fff; }
+.tb-btn:disabled { color: #4a4a4a; cursor: default; background: transparent; }
+
+/* 导航键 hover 用腾讯橙点缀 */
+.nav .tb-btn:not(:disabled):hover { color: #ff6a00; background: rgba(255, 106, 0, .12); }
+
+/* 窗口控制：贴右上、方形（Windows 观感） */
+.win-controls .tb-btn { border-radius: 0; width: 44px; height: 40px; }
+.tb-close:hover { background: #e81123 !important; color: #fff !important; }
+
+/* 最大化 / 还原 图标切换 */
+.icon-restore { display: none; }
+.is-max .icon-max { display: none; }
+.is-max .icon-restore { display: inline; }
+
+/* 刷新 loading 转圈 */
+.loading #reload svg { animation: spin .8s linear infinite; transform-origin: 50% 50%; }
+@keyframes spin { to { transform: rotate(360deg); } }
