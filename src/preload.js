@@ -46,6 +46,12 @@ function buildCSS () {
     #shortcut .shortcut-item:has(a[href*="kf.qq.com"]) { display: none !important; }
     /* 左侧导航底部：隐藏 客服（保留反馈等其它项） */
     .policy-txv-item:has(a[href*="kf.qq.com"]) { display: none !important; }
+
+    /* 播放页精简：游戏广告、相关短视频、VIP 开通横幅
+       （相关短视频必须用 id 前缀匹配，.episode-module-container 也用于剧集列表，不可整类隐藏） */
+    .game-module-container,
+    [id^="module-related_short_video"],
+    .vip-container:has(.banner-content) { display: none !important; }
     ::-webkit-scrollbar { width: 10px; height: 10px; }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 5px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.28); }
