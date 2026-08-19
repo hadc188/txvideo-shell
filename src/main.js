@@ -16,6 +16,7 @@ let win = null      // BrowserWindow：根页 = 标题栏
 let content = null  // WebContentsView：v.qq.com 内容
 let tray = null
 let isQuitting = false // true 时才真正退出（否则关闭 = 最小化到托盘）
+let isFullscreen = false
 const appIcon = nativeImage.createFromPath(path.join(__dirname, 'tx.ico'))
 
 function createWindow () {
@@ -55,8 +56,8 @@ function createWindow () {
   win.on('resize', layout)
   win.on('maximize', () => { layout(); pushMax() })
   win.on('unmaximize', () => { layout(); pushMax() })
-  win.on('enter-full-screen', pushMax)
-  win.on('leave-full-screen', pushMax)
+  win.on('enter-full-screen', () => { isFullscreen = true; layout(); pushMax() })
+  win.on('leave-full-screen', () => { isFullscreen = false; layout(); pushMax() })
 
   // 关闭 → 最小化到托盘（而非退出）；仅 isQuitting 时真正关闭
   win.on('close', (e) => {
@@ -104,11 +105,12 @@ function createWindow () {
   cwc.loadURL(HOME_URL)
 }
 
-// 内容视图铺满标题栏之下
+// 内容视图铺满标题栏之下；全屏时铺满整窗，用内容盖住标题栏
 function layout () {
   if (!win || !content) return
   const { width, height } = win.getContentBounds()
-  content.setBounds({ x: 0, y: TITLEBAR_H, width, height: height - TITLEBAR_H })
+  const top = isFullscreen ? 0 : TITLEBAR_H
+  content.setBounds({ x: 0, y: top, width, height: height - top })
 }
 
 // —— 状态推送 ——

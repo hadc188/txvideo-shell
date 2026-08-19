@@ -6,3 +6,4 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .claude/
+.ace-tool/
