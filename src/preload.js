@@ -442,6 +442,30 @@ function startVipParser () {
     }
   }
 
+  // 退出官方播放器全屏（真全屏 + 网页伪全屏）。
+  // 解析模式下官方控制栏已被隐藏，若不主动退出，用户将没有任何入口退出全屏。
+  function exitOfficialFullscreen () {
+    // 真全屏：Fullscreen API 直接退出
+    try {
+      if (document.fullscreenElement) document.exitFullscreen()
+    } catch (e) {
+    }
+
+    // 网页伪全屏：播放器/body 挂 *fullscreen* class 铺满视口，逐元素摘除该类 token
+    document.querySelectorAll('html, body, [class*="fullscreen"], [class*="full_screen"], [class*="full-screen"]').forEach((el) => {
+      if (!el.classList?.length) return
+      const kept = [...el.classList].filter((name) => !/full[-_ ]?screen/i.test(name))
+      if (kept.length !== el.classList.length) el.className = kept.join(' ')
+    })
+
+    // 伪全屏通常伴随页面锁滚动，一并恢复
+    try {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+    } catch (e) {
+    }
+  }
+
   function replacePlayer () {
     const playerContainer = preparePlayerContainer()
     if (!playerContainer) {
@@ -449,6 +473,7 @@ function startVipParser () {
     }
 
     isJiexiMode = true
+    exitOfficialFullscreen()
     console.log('[txv-shell][vip] parser on:', `${PARSER_BASE_URL}${encodeURIComponent(location.href)}`)
     document.getElementById(IFRAME_WRAPPER_ID)?.remove()
 
