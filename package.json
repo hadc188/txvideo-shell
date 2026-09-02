@@ -1,6 +1,6 @@
 {
   "name": "txvideo-shell",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "腾讯视频轻量第三方外壳（整页套壳 v.qq.com，仅供个人学习研究）",
   "author": "txvideo-shell",
