@@ -11,7 +11,7 @@ const OPT = {
   hideBarrage: false,          // 隐藏弹幕相关内容（用户要看弹幕，已关闭此项）
   removeWatermark: true,       // 移除视频右上角 LOGO 水印
   skipVideoAd: true,           // 跳过片头贴片广告
-  vipParser: true              // VIP 解析：播放器工具栏加皇冠按钮，点击后用第三方解析站(jx.xmflv.com)原地替换官方播放器
+  vipParser: true              // VIP 解析：播放器工具栏加皇冠按钮，点击后用第三方解析站(jx.lxyy.club)原地替换官方播放器
 }
 
 // 广告/推广/游戏浮层/下载引导/VIP 推广/播放器冗余 —— 静态隐藏清单
@@ -88,7 +88,12 @@ function applyDynamic () {
 //     官方扫码登录浮层与历史面板同为高 z-index 浮层，无条件清理会误删它们
 //  4) 油猴是 document-idle 注入，这里由 DOMContentLoaded 启动（时序更早，等价可用）
 function startVipParser () {
-  const PARSER_BASE_URL = 'https://jx.xmflv.com/?url='
+  // 解析源清单：左键皇冠用当前源，右键切换下一个源。
+  // 第三方解析站生命周期普遍很短，失效时直接在此数组里增删。
+  const PARSER_SOURCES = [
+    { name: 'LX 解析', base: 'https://jx.lxyy.club/index.php?url=' }
+  ]
+  let parserIndex = 0
   const MUTE_SITE_MEDIA_ON_LOAD = false
   const DESTROY_SITE_MEDIA_ON_REPLACE = false
   const TOOLBAR_SELECTOR = '.mod_player_action, .player_action, .txp_btn'
@@ -133,7 +138,7 @@ function startVipParser () {
     '[class*="advertisement"]',
     '[id*="ad_"]',
     '[id*="advertisement"]',
-    '[style*="z-index: 1000000"]'
+    'iframe[src*="mall."]'
   ].join(',')
 
   const BUTTON_ID = 'custom_vip_more_btn'
@@ -220,15 +225,6 @@ function startVipParser () {
 
   function removeAds () {
     document.querySelectorAll(AD_SELECTORS).forEach((node) => node.remove())
-
-    const highZindexElements = document.querySelectorAll('div, a, img')
-    highZindexElements.forEach((el) => {
-      const style = window.getComputedStyle(el)
-      const zIndex = parseInt(style.zIndex)
-      if (zIndex >= 1000000) {
-        el.remove()
-      }
-    })
   }
 
   function removeBlockingUi () {
@@ -328,6 +324,9 @@ function startVipParser () {
     if (DESTROY_SITE_MEDIA_ON_REPLACE) {
       destroyPageMedia()
     }
+    // 保持原播放器尺寸，不主动扩到全屏，避免解析层盖住标题栏、选集区和右侧推荐。
+    playerContainer.style.position = 'relative'
+    playerContainer.style.overflow = 'hidden'
     hideOriginalPlayerUi(playerContainer)
     removeBlockingUi()
 
@@ -388,6 +387,22 @@ function startVipParser () {
       event.preventDefault()
       event.stopPropagation()
       replacePlayer()
+    }
+    // 右键：切到下一个解析源（当前源解析失败时用）
+    button.oncontextmenu = (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      if (PARSER_SOURCES.length === 0) {
+        console.warn('[txv-shell][vip] no parser source configured')
+        return
+      }
+      parserIndex = (parserIndex + 1) % PARSER_SOURCES.length
+      const source = PARSER_SOURCES[parserIndex]
+      button.setAttribute('title', `${BUTTON_LABEL} · ${source.name}`)
+      console.warn('[txv-shell][vip] switch parser ->', source.name, source.base)
+      if (isJiexiMode) {
+        replacePlayer()
+      }
     }
 
     return button
@@ -467,6 +482,14 @@ function startVipParser () {
   }
 
   function replacePlayer () {
+    if (PARSER_SOURCES.length === 0) {
+      console.warn('[txv-shell][vip] no parser source configured')
+      return
+    }
+    const source = PARSER_SOURCES[parserIndex]
+    const parserUrl = `${source.base}${encodeURIComponent(location.href)}`
+    console.log('[txv-shell][vip] parser on:', source.name, parserUrl)
+
     const playerContainer = preparePlayerContainer()
     if (!playerContainer) {
       return
@@ -474,7 +497,6 @@ function startVipParser () {
 
     isJiexiMode = true
     exitOfficialFullscreen()
-    console.log('[txv-shell][vip] parser on:', `${PARSER_BASE_URL}${encodeURIComponent(location.href)}`)
     document.getElementById(IFRAME_WRAPPER_ID)?.remove()
 
     const wrapper = document.createElement('div')
@@ -484,14 +506,15 @@ function startVipParser () {
     wrapper.style.zIndex = '9999'
     wrapper.style.background = '#000'
     wrapper.style.pointerEvents = 'auto'
+    wrapper.style.overflow = 'hidden'
 
     const iframe = document.createElement('iframe')
     iframe.id = IFRAME_ID
-    iframe.src = `${PARSER_BASE_URL}${encodeURIComponent(location.href)}`
+    iframe.src = parserUrl
+    iframe.frameBorder = '0'
     iframe.allow = 'autoplay; fullscreen; encrypted-media'
     iframe.allowFullscreen = true
     iframe.referrerPolicy = 'no-referrer-when-downgrade'
-    iframe.sandbox = 'allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock'
     iframe.style.width = '100%'
     iframe.style.height = '100%'
     iframe.style.border = '0'
@@ -536,6 +559,19 @@ function startVipParser () {
         e.preventDefault()
         e.stopPropagation()
         replacePlayer()
+      }
+      floatingBtn.oncontextmenu = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (PARSER_SOURCES.length === 0) {
+          console.warn('[txv-shell][vip] no parser source configured')
+          return
+        }
+        parserIndex = (parserIndex + 1) % PARSER_SOURCES.length
+        console.warn('[txv-shell][vip] switch parser ->', PARSER_SOURCES[parserIndex].name)
+        if (isJiexiMode) {
+          replacePlayer()
+        }
       }
       player.style.position = 'relative'
       player.appendChild(floatingBtn)
