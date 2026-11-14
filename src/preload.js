@@ -91,9 +91,14 @@ function startVipParser () {
   // 解析源清单：左键皇冠用当前源，右键切换下一个源。
   // 第三方解析站生命周期普遍很短，失效时直接在此数组里增删。
   const PARSER_SOURCES = [
-    { name: 'LX 解析', base: 'https://jx.lxyy.club/index.php?url=' }
+    { name: 'LX 解析', base: 'https://jx.lxyy.club/index.php?url=' },
+    { name: 'AIBOX 解析', base: 'https://aibox.eu.org/?url=' },
+    { name: 'KUZIBANG 线路一', base: 'https://bfq.txnp.cn/player?url=' },
+    { name: 'KUZIBANG 线路三', base: 'https://free.maccms.xyz/?url=' }
   ]
-  let parserIndex = 0
+  const PARSER_INDEX_KEY = 'txv-shell:vip-parser-index'
+  let parserIndex = Number.parseInt(localStorage.getItem(PARSER_INDEX_KEY), 10)
+  if (!Number.isInteger(parserIndex) || parserIndex < 0 || parserIndex >= PARSER_SOURCES.length) parserIndex = 0
   const MUTE_SITE_MEDIA_ON_LOAD = false
   const DESTROY_SITE_MEDIA_ON_REPLACE = false
   const TOOLBAR_SELECTOR = '.mod_player_action, .player_action, .txp_btn'
@@ -158,6 +163,7 @@ function startVipParser () {
   let isJiexiMode = false
   let lastUrl = location.href
   let initTimer = 0
+  let parserWatchdog = 0
   const managedMedia = new WeakSet()
 
   document.addEventListener('keydown', interceptHotkeys, true)
@@ -368,7 +374,7 @@ function startVipParser () {
 
     button.id = BUTTON_ID
     button.setAttribute(BUTTON_MARKER, 'true')
-    button.setAttribute('title', BUTTON_LABEL)
+    updateButtonTitle(button)
     button.setAttribute('aria-label', BUTTON_LABEL)
     button.dataset.aiEntity = BUTTON_LABEL
     button.dataset.aiIntent = 'Open the VIP parser in place of the current Tencent Video player.'
@@ -386,26 +392,52 @@ function startVipParser () {
     button.onclick = (event) => {
       event.preventDefault()
       event.stopPropagation()
+      document.getElementById('custom_vip_parser_menu')?.remove()
       replacePlayer()
     }
-    // 右键：切到下一个解析源（当前源解析失败时用）
+    // 右键：展开线路列表。
     button.oncontextmenu = (event) => {
       event.preventDefault()
       event.stopPropagation()
-      if (PARSER_SOURCES.length === 0) {
-        console.warn('[txv-shell][vip] no parser source configured')
-        return
-      }
-      parserIndex = (parserIndex + 1) % PARSER_SOURCES.length
-      const source = PARSER_SOURCES[parserIndex]
-      button.setAttribute('title', `${BUTTON_LABEL} · ${source.name}`)
-      console.warn('[txv-shell][vip] switch parser ->', source.name, source.base)
-      if (isJiexiMode) {
-        replacePlayer()
-      }
+      showParserMenu(button)
     }
 
     return button
+  }
+
+  function updateButtonTitle (button) {
+    const source = PARSER_SOURCES[parserIndex]
+    const label = source ? `${BUTTON_LABEL} · ${source.name}` : BUTTON_LABEL
+    button.setAttribute('title', label)
+  }
+
+  function showParserMenu (anchor) {
+    document.getElementById('custom_vip_parser_menu')?.remove()
+    const rect = anchor.getBoundingClientRect()
+    const menu = document.createElement('div')
+    menu.id = 'custom_vip_parser_menu'
+    menu.style.cssText = `position:fixed;left:${Math.max(8, rect.left - 160)}px;top:${Math.max(8, rect.bottom + 6)}px;z-index:2147483647;min-width:220px;padding:6px;border-radius:8px;background:#1b1b1b;border:1px solid rgba(255,255,255,.18);box-shadow:0 8px 28px rgba(0,0,0,.55);font:13px Microsoft YaHei,sans-serif;`
+    PARSER_SOURCES.forEach((source, index) => {
+      const item = document.createElement('button')
+      item.type = 'button'
+      item.textContent = source.name
+      item.style.cssText = `display:block;width:100%;padding:8px 10px;border:0;border-radius:5px;background:${index === parserIndex ? 'rgba(247,215,116,.18)' : 'transparent'};color:${index === parserIndex ? '#f7d774' : '#fff'};font:13px Microsoft YaHei,sans-serif;text-align:left;cursor:pointer;`
+      item.addEventListener('click', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        selectParser(index)
+        menu.remove()
+        if (!isJiexiMode) replacePlayer()
+      })
+      menu.appendChild(item)
+    })
+    document.body.appendChild(menu)
+    const close = (event) => {
+      if (menu.contains(event.target)) return
+      menu.remove()
+      document.removeEventListener('pointerdown', close, true)
+    }
+    setTimeout(() => document.addEventListener('pointerdown', close, true), 0)
   }
 
   function blockIframeAds (iframe) {
@@ -428,15 +460,6 @@ function startVipParser () {
             ].join(',')
 
             iframe.contentDocument.querySelectorAll(adSelectors).forEach(el => el.remove())
-
-            const allElements = iframe.contentDocument.querySelectorAll('*')
-            allElements.forEach(el => {
-              const style = window.getComputedStyle(el)
-              const zIndex = parseInt(style.zIndex)
-              if (zIndex >= 1000000) {
-                el.remove()
-              }
-            })
           }
         } catch (e) {
         }
@@ -487,6 +510,10 @@ function startVipParser () {
       return
     }
     const source = PARSER_SOURCES[parserIndex]
+    void mountParser(source)
+  }
+
+  function mountParser (source) {
     const parserUrl = `${source.base}${encodeURIComponent(location.href)}`
     console.log('[txv-shell][vip] parser on:', source.name, parserUrl)
 
@@ -497,7 +524,6 @@ function startVipParser () {
 
     isJiexiMode = true
     exitOfficialFullscreen()
-    document.getElementById(IFRAME_WRAPPER_ID)?.remove()
 
     const wrapper = document.createElement('div')
     wrapper.id = IFRAME_WRAPPER_ID
@@ -507,6 +533,43 @@ function startVipParser () {
     wrapper.style.background = '#000'
     wrapper.style.pointerEvents = 'auto'
     wrapper.style.overflow = 'hidden'
+
+    const statusBar = document.createElement('div')
+    statusBar.id = 'custom_vip_parser_status'
+    statusBar.style.cssText = 'position:absolute;left:12px;top:12px;z-index:10000;display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;background:rgba(0,0,0,.72);color:#fff;font:12px/1.4 Microsoft YaHei,sans-serif;pointer-events:auto;'
+    const statusText = document.createElement('span')
+    statusText.textContent = `${source.name} · 正在加载`
+    const switchButton = document.createElement('button')
+    switchButton.type = 'button'
+    switchButton.textContent = '切换线路'
+    switchButton.style.cssText = 'border:1px solid rgba(255,255,255,.4);border-radius:4px;background:transparent;color:#fff;font:12px Microsoft YaHei,sans-serif;padding:2px 6px;cursor:pointer;'
+    const sourceList = document.createElement('div')
+    sourceList.id = 'custom_vip_parser_sources'
+    sourceList.style.cssText = 'position:absolute;left:12px;top:44px;z-index:10001;display:none;min-width:210px;padding:4px;border-radius:6px;background:rgba(0,0,0,.9);box-shadow:0 4px 16px rgba(0,0,0,.35);'
+    PARSER_SOURCES.forEach((item, index) => {
+      const itemButton = document.createElement('button')
+      itemButton.type = 'button'
+      itemButton.textContent = item.name
+      itemButton.style.cssText = `display:block;width:100%;padding:6px 10px;border:0;border-radius:4px;background:${index === parserIndex ? 'rgba(247,215,116,.22)' : 'transparent'};color:${index === parserIndex ? '#f7d774' : '#fff'};font:12px Microsoft YaHei,sans-serif;text-align:left;cursor:pointer;`
+      itemButton.addEventListener('click', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        selectParser(index)
+      })
+      sourceList.appendChild(itemButton)
+    })
+    switchButton.addEventListener('click', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      sourceList.style.display = sourceList.style.display === 'block' ? 'none' : 'block'
+    })
+    statusBar.appendChild(statusText)
+    statusBar.appendChild(switchButton)
+    statusBar.appendChild(sourceList)
+    wrapper.appendChild(statusBar)
+    wrapper.addEventListener('mouseleave', () => {
+      sourceList.style.display = 'none'
+    })
 
     const iframe = document.createElement('iframe')
     iframe.id = IFRAME_ID
@@ -520,12 +583,35 @@ function startVipParser () {
     iframe.style.border = '0'
     iframe.style.display = 'block'
     iframe.style.background = '#000'
+    iframe.addEventListener('load', () => {
+      statusText.textContent = `${source.name} · 已连接`
+    })
 
     blockIframeAds(iframe)
 
     wrapper.appendChild(iframe)
+    document.getElementById(IFRAME_WRAPPER_ID)?.remove()
     playerContainer.appendChild(wrapper)
     removeBlockingUi()
+
+    clearTimeout(parserWatchdog)
+    parserWatchdog = 0
+  }
+
+  function switchToNextParser () {
+    selectParser((parserIndex + 1) % PARSER_SOURCES.length)
+  }
+
+  function selectParser (index) {
+    clearTimeout(parserWatchdog)
+    parserWatchdog = 0
+    parserIndex = index
+    localStorage.setItem(PARSER_INDEX_KEY, String(parserIndex))
+    updateButtonTitle(document.getElementById(BUTTON_ID))
+    console.warn('[txv-shell][vip] switch parser ->', PARSER_SOURCES[parserIndex].name)
+    if (isJiexiMode) {
+      void mountParser(PARSER_SOURCES[parserIndex])
+    }
   }
 
   function replaceMoreButton () {
@@ -558,20 +644,13 @@ function startVipParser () {
       floatingBtn.onclick = (e) => {
         e.preventDefault()
         e.stopPropagation()
+        document.getElementById('custom_vip_parser_menu')?.remove()
         replacePlayer()
       }
       floatingBtn.oncontextmenu = (e) => {
         e.preventDefault()
         e.stopPropagation()
-        if (PARSER_SOURCES.length === 0) {
-          console.warn('[txv-shell][vip] no parser source configured')
-          return
-        }
-        parserIndex = (parserIndex + 1) % PARSER_SOURCES.length
-        console.warn('[txv-shell][vip] switch parser ->', PARSER_SOURCES[parserIndex].name)
-        if (isJiexiMode) {
-          replacePlayer()
-        }
+        showParserMenu(floatingBtn)
       }
       player.style.position = 'relative'
       player.appendChild(floatingBtn)
